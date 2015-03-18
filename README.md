@@ -23,9 +23,10 @@ Or install it yourself as:
 Overview
 ------------------------
 
-The abstract builder and validator classes are abstract classes for concrete builder classes to inherit from. They will be extracted to a gem once they are imporved and generalized through this project.
+The abstract builder and validator classes are abstract classes for concrete builder classes to inherit from.
+The purpose of the builder object is to create a layer of abstraction between the controller and models in a Rails application. 
 
-The purpose of the builder object is to create a layer of abstraction between the controller and models in a Rails application. The builder is particularly useful for receiving complex post and put requests with multiple parameters, but is lightweight enough to use for simple writes when some filtering or parameter combination validation might be useful before writing to the database. Since it wraps the entire write action to mulitple models in a single transaction, any failure in the builder will result in the entire request being rolled back. 
+The builder is particularly useful for receiving complex post and put requests with multiple parameters, but is lightweight enough to use for simple writes when some filtering or parameter combination validation might be useful before writing to the database. Since it wraps the entire write action to mulitple models in a single transaction, any failure in the builder will result in the entire request being rolled back. 
 
 
 Features
@@ -50,7 +51,7 @@ The TL;DR copy & paste version:
 Save this somewhere in your app directory. Maybe in a builders folder?
 
 
-      class PostBuilder < BaseBuilder
+      class PostBuilder < Levee::Builder
         #matches the class name
 
         #make sure you list all params that are passed in (you can skip id if you want)
@@ -63,7 +64,7 @@ Save this somewhere in your app directory. Maybe in a builders folder?
         #list as many before_save and after_save callbacks as you want
         after_save :tweet_post
 
-        #choose a validator class to run automatically (must be a legit base validator)
+        #choose a validator class to run automatically (must be a legit levee validator class)
         validator PostParamsValidator
 
         #access the model using #object
@@ -142,7 +143,7 @@ Let me say that again. The return value of custom methods does not automatically
 The id key is the only key in the params hash that does not need to be whitelisted and will not be mapped by default. It can still be overridden if you want to catch the id and do someting with it, or if you want to cue some other action just before the attribute mapping executes.
 
 
-###The object Object
+###The object object
 
 
 As in ActiveModel::Serializers, the builder makes use of the object object within the class. This allows for code that easily reusable between create and update requests. Behind the scenes the base builder uses the id the the params hash to look up the existing object form the inferred model and represents it as object. If no :id parameter exists a new empty object of that class is instantiated and assigned to object. Buidler methods then don't need to know or care about whether object is new or existing and can treat it the same. In the cases where this might be important, you are of course free to dig into object and ask it all sorts of ActiveRecord questions about its state inside your overwriter methods. 
@@ -183,7 +184,7 @@ Moar Features
 
 You can list macro-style callbacks inside the class just like in your ActiveRecord models. 
 
-      class PostBuilder
+      class PostBuilder < Levee::Builder
 
         attributes :title,
                    :content,
@@ -214,7 +215,7 @@ Just be sure you define the methods you list somewhere within the class, otherwi
 The builder implements #delayed_saved(object) to be used inside a builder class. This is a shortcut for calling save! on any object as part of the after save callbacks. It is useful for when you are creating nested objects inside a builder and you want to be sure that the parent object is saved first, as is the case with associations where you need to be sure the parent has all attributes in place to pass validattion before the child forces a save. Note that delayed_save callbacks fire before the rest of the after_save callbacks.
 
 
-      class PostBuilder
+      class PostBuilder < Levee::Builder
 
         attributes :title,
                    :content,
@@ -264,7 +265,7 @@ You can make a validator class to be used with your builder. It's a good place t
 Make the class like this. You can put it anywhere in the app directory, but it feels very at home in a folder called validations. It doesn't use class inference so you can call it whatever
 
 
-      class UltraSweetValidator < BaseValidator
+      class UltraSweetValidator < Levee::Validator
     
         validations :first_method,
                     :other_method
@@ -296,7 +297,7 @@ When you find something you don't like, you can either use the super userful #ad
 Call the validator inside the builder by listing the class name 
 
 
-      class PostBuilder < BaseBuilder
+      class PostBuilder < Levee::Builder
 
         attributes :title,
                    :content,
@@ -314,10 +315,6 @@ That's it. The validator is called at the very beginning of the build method (an
 Don't bother validating simple params in your validator that map straight onto the model attributes. The builder always calls #save! instead of #save and then catches the errors so you can jsut use your regular old ActiveRecord validators and still have a errors hash at the end. 
 
 
-
-
-
-TODO: Write usage instructions here
 
 ## Contributing
 
