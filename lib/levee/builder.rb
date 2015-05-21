@@ -10,8 +10,7 @@ module Levee
                   :builder_options
 
     def initialize(params, options={}, &blk)
-      self.params                 = params
-      validate_params
+      set_params_using_adapter(params)
       self.errors                 = []
       self.nested_objects_to_save = []
       self.permitted_attributes   = [:id]
@@ -29,6 +28,7 @@ module Levee
 
     def build_nested(parent_object: nil, parent_builder: nil)
       self.requires_save = false
+      # parent.send(my_association_name).build
       build
     end
 
@@ -146,7 +146,7 @@ module Levee
 
     def raise_if_validation_error(rescued_error)
       if rescued_error.is_a? ActiveRecord::RecordInvalid
-        self.errors << { status: 422, code: 'validation_error', message: object.errors.full_messages, record: rescued_error.record }
+        self.errors << { status: 422, code: 'validation_error', message: rescued_error.message, full_messages: object.errors.full_messages, record: rescued_error.record }
         raise ActiveRecord::Rollback
       end  
     end
@@ -225,6 +225,17 @@ module Levee
 
     def self._validator
       @validator
+    end
+
+    def self.set_adapter(adapter)
+      adapter_module = adapter.to_s.camelize.constantize
+      self.include adapter_module
+      self.extend adapter_module
+    end
+
+    def set_params_using_adapter(params)
+      self.params = params
+      validate_params
     end
   end
 end
