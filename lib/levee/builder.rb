@@ -68,7 +68,7 @@ module Levee
     end
 
     def perform_in_transaction
-      self.errors += validator.validate_params.errors if validator
+      self.errors += validator.validate_params(builder_options).errors if validator
       return false if errors.any?
       self.object = top_level_array || call_setter_for_each_param_key
       return true unless requires_save && !top_level_array

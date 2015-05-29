@@ -1,13 +1,14 @@
 module Levee
   class Validator
-    attr_accessor :errors, :params
+    attr_accessor :errors, :params. :builder_options
 
     def initialize(params)
       self.errors  = []
       self.params = params
     end
 
-    def validate_params
+    def validate_params(builder_options = {})
+      @builder_options = builder_options
       validations.each { |val| send(val) }
       self
     end
