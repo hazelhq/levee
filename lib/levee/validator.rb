@@ -1,6 +1,6 @@
 module Levee
   class Validator
-    attr_accessor :errors, :params. :builder_options
+    attr_accessor :errors, :params, :builder_options
 
     def initialize(params)
       self.errors  = []
