@@ -28,7 +28,6 @@ module Levee
 
     def build_nested(parent_object: nil, parent_builder: nil)
       self.requires_save = false
-      # parent.send(my_association_name).build
       build
     end
 
@@ -63,7 +62,7 @@ module Levee
       end
       Rails.logger.error "Builder Errors:"
       Rails.logger.error errors.to_yaml
-      self.object = object.reload if errors.empty? && object.try(:persisted?)
+      # self.object = object.reload if errors.empty? && object.try(:persisted?)
       errors.empty? ? object : {errors: errors, error_status: errors.first[:status]}
     end
 
