@@ -69,6 +69,7 @@ module Levee
     def perform_in_transaction
       self.errors += validator.validate_params(builder_options).errors if validator
       return false if errors.any?
+      flatten_attributes
       self.object = top_level_array || call_setter_for_each_param_key
       return true unless requires_save && !top_level_array
       before_save_callbacks.each { |callback| send(callback) }
@@ -235,6 +236,31 @@ module Levee
     def set_params_using_adapter(params)
       self.params = params
       validate_params
+    end
+
+    def flatten_attributes
+     if params.is_a?(Hash)
+       self.params = flatten_hash(params)
+     elsif params.is_a?(Array)
+       self.params = flatten_array
+     end
+    end
+
+    def flatten_array
+      params.map do |p|
+        flatten_hash(p)
+      end
+    end
+
+    def flatten_hash(val)
+      if val.fetch(:attributes, nil)
+        p = val.dup
+        p[:attributes][:id] = val[:id] if val[:id]
+        p[:attributes][:type] = val[:type] if val[:type]
+        p[:attributes]
+      else
+        val
+      end   
     end
   end
 end
