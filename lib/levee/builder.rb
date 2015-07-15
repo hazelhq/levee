@@ -180,7 +180,7 @@ module Levee
 
     def raise_if_unknown_attribute_error(rescued_error)
       if rescued_error.is_a? ActiveRecord::UnknownAttributeError
-        error = { status: 400, code: 'unknown_attribute_error', message: rescued_error.message, record: rescued_error.record, error: rescued_error }
+        error = { status: 400, code: 'unknown_attribute_error', message: rescued_error.message, record: rescued_error.record, error: rescued_error, trace: rescued_error.backtrace }
         Rails.logger.warn error
         self.errors << error
         Rails.warn "Transaction rolled back"
