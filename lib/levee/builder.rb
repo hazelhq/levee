@@ -53,7 +53,7 @@ module Levee
         begin
           perform_in_transaction
         rescue => e
-          Rails.warn "Error caugh in builder #{self}"
+          Rails.logger.warn "Error caught in builder #{self}"
           raise_error = -> { raise e }
           rescue_errors(e) || raise_error.call
         ensure
