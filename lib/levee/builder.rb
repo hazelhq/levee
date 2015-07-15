@@ -53,6 +53,7 @@ module Levee
         begin
           perform_in_transaction
         rescue => e
+          Rails.warn "Error caugh in builder #{self}"
           raise_error = -> { raise e }
           rescue_errors(e) || raise_error.call
         ensure
@@ -60,8 +61,8 @@ module Levee
           raise ActiveRecord::Rollback unless errors.flatten.empty?
         end  
       end
-      Rails.logger.error "Builder Errors:"
-      Rails.logger.error errors.to_yaml
+      Rails.logger.warn {message: "Builder Errors",
+                          errors: errors} 
       # self.object = object.reload if errors.empty? && object.try(:persisted?)
       errors.empty? ? object : {errors: errors, error_status: errors.first[:status]}
     end
@@ -69,7 +70,7 @@ module Levee
     def perform_in_transaction
       self.errors += validator.validate_params(builder_options).errors if validator
       return false if errors.any?
-      flatten_attributes
+      
       self.object = top_level_array || call_setter_for_each_param_key
       return true unless requires_save && !top_level_array
       before_save_callbacks.each { |callback| send(callback) }
@@ -109,6 +110,7 @@ module Levee
         object.send(:"#{method_name}=", args.first)
       rescue => e
         if params.has_key?(method_name)
+          Rails.logger.warn {message: "message"}
           message = "Unable to process value for :#{method_name}, no attribute writer. Be sure to override the automatic setters for all params that do not map straight to a model attribute."
           self.errors << {status: 422, message: message}
         else
@@ -146,7 +148,10 @@ module Levee
 
     def raise_if_validation_error(rescued_error)
       if rescued_error.is_a? ActiveRecord::RecordInvalid
-        self.errors << { status: 422, code: 'validation_error', message: rescued_error.message, full_messages: object.errors.full_messages, record: rescued_error.record }
+        error = { status: 422, code: 'validation_error', message: rescued_error.message, full_messages: object.errors.full_messages, record: rescued_error.record, error: rescued_error }
+        Rails.logger.warn error
+        self.errors << error
+        Rails.warn "Transaction rolled back"
         raise ActiveRecord::Rollback
       end  
     end
@@ -154,14 +159,20 @@ module Levee
     def raise_if_argument_error(rescued_error)
       if rescued_error.is_a? ArgumentError
         message = "All methods on the builder that override attribute setters must accept one argument to catch the parameter value"
-        self.errors << { status: 500, code: 'builder_error', message: message }
+        error = { status: 500, code: 'builder_error', message: message, error: rescued_error }
+        Rails.logger.error error
+        self.errors << error
+        Rails.warn "Transaction rolled back"
         raise ArgumentError.new message
       end
     end
 
     def raise_if_unknown_attribute_error(rescued_error)
       if rescued_error.is_a? ActiveRecord::UnknownAttributeError
-        self.errors << { status: 400, code: 'unknown_attribute_error', message: rescued_error.message, record: rescued_error.record }
+        error = { status: 400, code: 'unknown_attribute_error', message: rescued_error.message, record: rescued_error.record, error: rescued_error }
+        Rails.logger.warn error
+        self.errors << error
+        Rails.warn "Transaction rolled back"
         raise ActiveRecord::Rollback
       end
     end
