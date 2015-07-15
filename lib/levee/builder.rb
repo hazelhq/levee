@@ -74,7 +74,7 @@ module Levee
     def perform_in_transaction
       self.errors += validator.validate_params(builder_options).errors if validator
       return false if errors.any?
-      
+      flatten_attributes
       self.object = top_level_array || call_setter_for_each_param_key
       return true unless requires_save && !top_level_array
       before_save_callbacks.each { |callback| send(callback) }
