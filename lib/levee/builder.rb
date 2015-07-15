@@ -23,6 +23,7 @@ module Levee
       unless params.is_a? Array
         self.object = object_class.find_by(id: params[:id]) || object_class.new
       end
+      Rails.logger.debug({message: "#{self.class} building object", object: object, parmas: params })
       assign_parameters_in_transaction
     end
 
@@ -53,7 +54,10 @@ module Levee
         begin
           perform_in_transaction
         rescue => e
-          Rails.logger.warn "Error caught in builder #{self}"
+          Rails.logger.warn({message: "Error caught in builder", 
+                             error: e,
+                             builder: self,
+                             params: params})
           raise_error = -> { raise e }
           rescue_errors(e) || raise_error.call
         ensure
@@ -93,7 +97,9 @@ module Levee
       else
         error = {status: 400, message: "Unpermitted parameter key #{key}"}
         errors << error
-        Rails.logger.warn "Unpermitted parameter key #{key}"
+        Rails.logger.warn({message: "Unpermitted parameter key, not listed in #{self.class} attributes",
+                           key: key,
+                           listed_attributes: permitted_attributes})
         raise ActiveRecord::Rollback
       end
     end
@@ -113,7 +119,10 @@ module Levee
       rescue => e
         if params.has_key?(method_name)
           message = "Unable to process value for :#{method_name}, no attribute writer. Be sure to override the automatic setters for all params that do not map straight to a model attribute."
-          Rails.logger.warn message
+          Rails.logger.warn({message: message,
+                             missing_writer: method_name,
+                             value: args.first,
+                             error: error})
           self.errors << {status: 422, message: message}
         else
           raise e
@@ -196,6 +205,7 @@ module Levee
       message = "Params passed to builder must not have a root node"
       key = params.keys.first
       raise message if key && key.to_s.camelize == object_class.to_s
+      Rails.logger.debug({message: "Params passed validation", builder: "self.class", params: params})
     end
 
     #used so that id setter is not called by default
