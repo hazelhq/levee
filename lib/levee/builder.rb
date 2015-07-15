@@ -85,6 +85,7 @@ module Levee
     end
 
     def call_setter_for_each_param_key
+      Rails.logger.info({message: "Attributes being set:", attributes: params})
       params.each do |key, value|
         send_if_key_included_in_attributes(key.to_sym, value)
       end
