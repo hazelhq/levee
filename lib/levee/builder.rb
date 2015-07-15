@@ -199,7 +199,7 @@ module Levee
     
     def validate_params
       message =  "Params passed to builder must be a hash or top level array"
-      Rails.logger.error message
+      # Rails.logger.error message
       raise message unless params.respond_to?(:fetch)
       return true if params.is_a? Array
       message = "Params passed to builder must not have a root node"
