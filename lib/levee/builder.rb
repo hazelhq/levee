@@ -61,8 +61,8 @@ module Levee
           raise ActiveRecord::Rollback unless errors.flatten.empty?
         end  
       end
-      Rails.logger.warn {message: "Builder Errors",
-                          errors: errors} 
+      Rails.logger.warn({message: "Builder Errors",
+                          errors: errors}) 
       # self.object = object.reload if errors.empty? && object.try(:persisted?)
       errors.empty? ? object : {errors: errors, error_status: errors.first[:status]}
     end
@@ -91,7 +91,9 @@ module Levee
       if permitted_attributes.include?(key)
         self.send(key, value)
       else
-        errors << {status: 400, message: "Unpermitted parameter key #{key}"}
+        error = {status: 400, message: "Unpermitted parameter key #{key}"}
+        errors << error
+        Rails.logger.warn "Unpermitted parameter key #{key}"
         raise ActiveRecord::Rollback
       end
     end
@@ -110,8 +112,8 @@ module Levee
         object.send(:"#{method_name}=", args.first)
       rescue => e
         if params.has_key?(method_name)
-          Rails.logger.warn {message: "message"}
           message = "Unable to process value for :#{method_name}, no attribute writer. Be sure to override the automatic setters for all params that do not map straight to a model attribute."
+          Rails.logger.warn message
           self.errors << {status: 422, message: message}
         else
           raise e
@@ -188,6 +190,7 @@ module Levee
     
     def validate_params
       message =  "Params passed to builder must be a hash or top level array"
+      Rails.logger.error message
       raise message unless params.respond_to?(:fetch)
       return true if params.is_a? Array
       message = "Params passed to builder must not have a root node"
