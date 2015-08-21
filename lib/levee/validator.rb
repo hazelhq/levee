@@ -2,7 +2,7 @@ module Levee
   class Validator
     attr_accessor :errors, :params, :builder_options, :object
 
-    def initialize(params, object)
+    def initialize(params, object=nil)
       self.errors  = []
       self.object  = object
 
