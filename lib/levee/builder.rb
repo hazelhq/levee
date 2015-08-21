@@ -57,7 +57,7 @@ module Levee
           Rails.logger.warn({message: "Error caught in builder", 
                              error: e,
                              builder: self,
-                             params: params
+                             params: params,
                              backtrace: e.backtrace})
           raise_error = -> { raise e }
           rescue_errors(e) || raise_error.call
