@@ -44,7 +44,7 @@ module Levee
 
     def validator
       return nil unless self.class._validator
-      @validator ||= self.class._validator.new(params)
+      @validator ||= self.class._validator.new(params, object)
     end
 
     private
