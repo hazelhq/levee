@@ -124,7 +124,7 @@ module Levee
           Rails.logger.warn({message: message,
                              missing_writer: method_name,
                              value: args.first,
-                             error: error})
+                             error: e})
           self.errors << {status: 422, message: message}
         else
           raise e
