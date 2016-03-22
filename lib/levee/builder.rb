@@ -190,8 +190,8 @@ module Levee
 
     def rescue_errors(rescued_error)
       raise_if_validation_error(rescued_error)
-      raise_if_argument_error(rescued_error)
       raise_if_unknown_attribute_error(rescued_error)
+      false
     end
 
     def raise_if_validation_error(rescued_error)
@@ -207,17 +207,6 @@ module Levee
         self.errors << error
         Rails.warn "Transaction rolled back"
         raise ActiveRecord::Rollback
-      end
-    end
-
-    def raise_if_argument_error(rescued_error)
-      if rescued_error.is_a? ArgumentError
-        message = "All methods on the builder that override attribute setters must accept one argument to catch the parameter value"
-        error = { status: 500, code: 'builder_error', message: message, error: rescued_error }
-        Rails.logger.error error
-        self.errors << error
-        Rails.warn "Transaction rolled back"
-        raise ArgumentError.new message
       end
     end
 
