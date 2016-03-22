@@ -141,7 +141,8 @@ module Levee
     def top_level_array
       return false unless params.is_a?(Array)
       @top_level_array ||= params.map do |param_object|
-        self.class.new(param_object, builder_options).build_nested
+        #jsonapi coupled
+        self.class.new(param_object[:attributes], builder_options).build_nested
       end
     end
 
