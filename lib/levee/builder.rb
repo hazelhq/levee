@@ -83,19 +83,19 @@ module Levee
     end
 
     def perform_in_transaction
-      case params
-      when Array
-        object = top_level_array
-      when Hash
-        object = call_setter_for_each_param_key
-      end
-
       run_validator
       return false if errors.any?
 
       #this assumes that the nested params are JSONAPI formatted
       #TODO make this conditional
       flatten_attributes!
+
+      case params
+      when Array
+        object = top_level_array
+      when Hash
+        object = call_setter_for_each_param_key
+      end
 
       return true unless requires_save && !top_level_array
       perform_saves!
@@ -141,8 +141,7 @@ module Levee
     def top_level_array
       return false unless params.is_a?(Array)
       @top_level_array ||= params.map do |param_object|
-        #jsonapi coupled
-        self.class.new(param_object[:attributes], builder_options).build_nested
+        self.class.new(param_object, builder_options).build_nested
       end
     end
 
