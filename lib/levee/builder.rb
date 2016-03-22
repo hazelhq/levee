@@ -92,9 +92,9 @@ module Levee
 
       case params
       when Array
-        object = top_level_array
+        self.object = top_level_array
       when Hash
-        object = call_setter_for_each_param_key
+        self.object = call_setter_for_each_param_key
       end
 
       return true unless requires_save && !top_level_array
@@ -115,6 +115,7 @@ module Levee
       @callback_blocks.each_with_object(object, &:call)
 
       after_save_callbacks.each { |callback| send(callback) }
+      object
     end
 
     def call_setter_for_each_param_key
