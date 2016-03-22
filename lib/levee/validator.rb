@@ -21,7 +21,7 @@ module Levee
 
     def add_invalid_request_error(message)
       error = {status: 400, code: 'invalid_request_error', message: message}
-      errors << error 
+      errors << error
     end
 
     def add_invalid_request_error!(message)

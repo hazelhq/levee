@@ -1,12 +1,12 @@
 module Levee
   class Builder
 
-    attr_accessor :params, 
-                  :errors, 
-                  :object, 
-                  :nested_objects_to_save, 
-                  :permitted_attributes, 
-                  :requires_save, 
+    attr_accessor :params,
+                  :errors,
+                  :object,
+                  :nested_objects_to_save,
+                  :permitted_attributes,
+                  :requires_save,
                   :builder_options
 
     def initialize(params, options={}, &blk)
@@ -40,11 +40,23 @@ module Levee
 
     def permitted_attributes
       self.class._permitted_attributes || []
-    end  
+    end
 
-    def validator
+    def validators
       return nil unless self.class._validator
-      @validator ||= self.class._validator.new(params, object)
+      @validators ||= -> do
+
+        klass = self.class._validator
+        case params
+        when Array
+          # do nothing, because validations with happen in
+          # set of nested builders
+          []
+        when Hash
+          [ klass.new(params, object) ]
+        end
+
+      end.call
     end
 
     private
@@ -54,34 +66,56 @@ module Levee
         begin
           perform_in_transaction
         rescue => e
-          Rails.logger.warn({message: "Error caught in builder", 
-                             error: e,
-                             builder: self,
-                             params: params,
-                             backtrace: e.backtrace})
+          Rails.logger.warn(message: "Error caught in builder",
+                            error: e,
+                            builder: self,
+                            params: params,
+                            backtrace: e.backtrace)
           raise_error = -> { raise e }
           rescue_errors(e) || raise_error.call
         ensure
           self.errors = (errors << validator.errors).flatten if validator
           raise ActiveRecord::Rollback unless errors.flatten.empty?
-        end  
+        end
       end
       Rails.logger.warn({message: "Builder Errors",
-                          errors: errors}) 
-      # self.object = object.reload if errors.empty? && object.try(:persisted?)
+                          errors: errors}) if errors.any?
       errors.empty? ? object : {errors: errors, error_status: errors.first[:status]}
     end
 
     def perform_in_transaction
-      self.errors += validator.validate_params(builder_options).errors if validator
+      case params
+      when Array
+        object = top_level_array
+      when Hash
+        object = call_setter_for_each_param_key
+      end
+
+      run_validators
       return false if errors.any?
-      flatten_attributes
-      self.object = top_level_array || call_setter_for_each_param_key
+
+      #this assumes that the nested params are JSONAPI formatted
+      #TODO make this conditional
+      flatten_attributes!
+
       return true unless requires_save && !top_level_array
+      perform_saves!
+    end
+
+    def run_validators
+      validators.each do |validator|
+        self.errors += validator.validate_params(builder_options).errors
+      end
+    end
+
+    def perform_saves!
       before_save_callbacks.each { |callback| send(callback) }
+
+      #object may represent an array of builders
       [*object].each(&:save!)
       nested_objects_to_save.flatten.each(&:save!)
       @callback_blocks.each_with_object(object, &:call)
+
       after_save_callbacks.each { |callback| send(callback) }
     end
 
@@ -139,8 +173,10 @@ module Levee
     def object_class
       klass = self.class.to_s
       start_position = (/::\w+$/ =~ klass).try(:+,2)
+
       klass = klass[start_position..-1] if start_position
       suffix_position = klass =~ /Builder$/
+
       if suffix_position
         try_constant = klass[0...suffix_position]
         begin
@@ -154,19 +190,25 @@ module Levee
     end
 
     def rescue_errors(rescued_error)
-      raise_if_validation_error(rescued_error)    
+      raise_if_validation_error(rescued_error)
       raise_if_argument_error(rescued_error)
       raise_if_unknown_attribute_error(rescued_error)
     end
 
     def raise_if_validation_error(rescued_error)
       if rescued_error.is_a? ActiveRecord::RecordInvalid
-        error = { status: 422, code: 'validation_error', message: rescued_error.message, full_messages: object.errors.full_messages, record: rescued_error.record, error: rescued_error }
+        error = { status: 422,
+                  code: 'validation_error',
+                  message: rescued_error.message,
+                  full_messages: object.errors.full_messages,
+                  record: rescued_error.record,
+                  error: rescued_error
+                }
         Rails.logger.warn error
         self.errors << error
         Rails.warn "Transaction rolled back"
         raise ActiveRecord::Rollback
-      end  
+      end
     end
 
     def raise_if_argument_error(rescued_error)
@@ -182,7 +224,13 @@ module Levee
 
     def raise_if_unknown_attribute_error(rescued_error)
       if rescued_error.is_a? ActiveRecord::UnknownAttributeError
-        error = { status: 400, code: 'unknown_attribute_error', message: rescued_error.message, record: rescued_error.record, error: rescued_error, trace: rescued_error.backtrace }
+        error = { status: 400,
+                  code: 'unknown_attribute_error',
+                  message: rescued_error.message,
+                  record: rescued_error.record,
+                  error: rescued_error,
+                  backtrace: rescued_error.backtrace
+                }
         Rails.logger.warn error
         self.errors << error
         Rails.warn "Transaction rolled back"
@@ -194,11 +242,11 @@ module Levee
       @permitted_attributes ||= []
       args.each { |a| @permitted_attributes << a unless @permitted_attributes.include?(a) }
     end
-    
+
     def self._permitted_attributes
       @permitted_attributes
     end
-    
+
     def validate_params
       message =  "Params passed to builder must be a hash or top level array"
       # Rails.logger.error message
@@ -216,31 +264,31 @@ module Levee
     end
 
     #######################
-    ## callbacks       
+    ## callbacks
     ###########################
 
     def self.before_save(*args)
       @before_save_callbacks ||= []
       args.each { |a| @before_save_callbacks << a unless @before_save_callbacks.include?(a) }
     end
-    
+
     def self._before_save_callbacks
       @before_save_callbacks
     end
-    
+
     def self._after_save_callbacks
       @after_save_callbacks
     end
-    
+
     def self.after_save(*args)
       @after_save_callbacks ||= []
       args.each { |a| @after_save_callbacks << a unless @after_save_callbacks.include?(a) }
     end
-    
+
     def before_save_callbacks
       self.class._before_save_callbacks || []
     end
-    
+
     def after_save_callbacks
       self.class._after_save_callbacks || []
     end
@@ -264,7 +312,7 @@ module Levee
       validate_params
     end
 
-    def flatten_attributes
+    def flatten_attributes!
      if params.is_a?(Hash)
        self.params = flatten_hash(params)
      elsif params.is_a?(Array)
@@ -286,7 +334,7 @@ module Levee
         p[:attributes]
       else
         val
-      end   
+      end
     end
   end
 end
