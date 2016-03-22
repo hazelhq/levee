@@ -42,18 +42,17 @@ module Levee
       self.class._permitted_attributes || []
     end
 
-    def validators
+    def validator
       return nil unless self.class._validator
-      @validators ||= -> do
+      @validator ||= -> do
 
         klass = self.class._validator
         case params
         when Array
           # do nothing, because validations with happen in
           # set of nested builders
-          []
         when Hash
-          [ klass.new(params, object) ]
+          klass.new(params, object)
         end
 
       end.call
@@ -91,7 +90,7 @@ module Levee
         object = call_setter_for_each_param_key
       end
 
-      run_validators
+      run_validator
       return false if errors.any?
 
       #this assumes that the nested params are JSONAPI formatted
@@ -102,10 +101,9 @@ module Levee
       perform_saves!
     end
 
-    def run_validators
-      validators.each do |validator|
-        self.errors += validator.validate_params(builder_options).errors
-      end
+    def run_validator
+      return unless validator
+      self.errors += validator.validate_params(builder_options).errors
     end
 
     def perform_saves!
